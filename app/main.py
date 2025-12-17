@@ -1,63 +1,43 @@
-# app/main.py (CÓDIGO FINAL Y COMPLETO CON TODOS LOS ROUTERS)
-
 from fastapi import FastAPI
 from .database import Base, engine 
-
-# -----------------------------------------------------------------
-# 1. Importa TODOS los modelos (para crear las tablas)
-# -----------------------------------------------------------------
-from .models import usuario, ingreso, gasto_fijo, deuda, meta_ahorro, movimiento, pagos_deuda
-from .models import cadena, participante_cadena 
-
-
-# -----------------------------------------------------------------
-# 2. Importa TODOS los routers y RENOMBRA
-# -----------------------------------------------------------------
-from .routers import usuario as usuario_router
-from .routers import auth as auth_router     
-from .routers import ingreso as ingreso_router
-from .routers import gasto_fijo as gasto_fijo_router
-from .routers import deuda as deuda_router
-from .routers import pagos_deuda as pagos_deuda_router
-from .routers import meta_ahorro as meta_ahorro_router
-from .routers import movimiento as movimiento_router
-from .routers import cadena as cadena_router 
-from .routers import dashboard as dashboard_router
+from .models import usuario, ingreso, gasto_fijo, deuda, meta_ahorro, movimiento, pagos_deuda, cadena, participante_cadena 
+from .routers import usuario as usuario_router, auth as auth_router, ingreso as ingreso_router, \
+                     gasto_fijo as gasto_fijo_router, deuda as deuda_router, pagos_deuda as pagos_deuda_router, \
+                     meta_ahorro as meta_ahorro_router, movimiento as movimiento_router, \
+                     cadena as cadena_router, dashboard as dashboard_router
 from fastapi.middleware.cors import CORSMiddleware
 
-# -----------------------------------------------------------------
-# 3. Crear las tablas
-# -----------------------------------------------------------------
+# Crear tablas
 Base.metadata.create_all(bind=engine)
 
-# 4. Inicializar FastAPI
-app = FastAPI(
-    title="API de Finanzas Monexia",
-    description="Backend para la gestión de finanzas personales y familiares. ¡CRUD Completo!",
-    version="1.0.0"
-)
+app = FastAPI(title="API de Finanzas Monexia", version="1.0.0")
+
+# --- CORRECCIÓN DE CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # En producción cambia esto por la URL de tu front
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# -----------------------------------------------------------------
-# 5. Incluye TODOS los routers
-# -----------------------------------------------------------------
-app.include_router(auth_router.router)          
-app.include_router(usuario_router.router)       
-app.include_router(ingreso_router.router)       
-app.include_router(gasto_fijo_router.router)    
-app.include_router(deuda_router.router)         
-app.include_router(pagos_deuda_router.router)   
-app.include_router(meta_ahorro_router.router)   
-app.include_router(movimiento_router.router)    
-app.include_router(cadena_router.router)        
+
+# Incluir Routers
+app.include_router(auth_router.router)
+app.include_router(usuario_router.router)
+app.include_router(ingreso_router.router)
+app.include_router(gasto_fijo_router.router)
+app.include_router(deuda_router.router)
+app.include_router(pagos_deuda_router.router)
+app.include_router(meta_ahorro_router.router)
+app.include_router(movimiento_router.router)
+app.include_router(cadena_router.router)
 app.include_router(dashboard_router.router)
 
-# Endpoint raíz
 @app.get("/")
 def read_root():
-    return {"message": "Backend de Finanzas Monexia Activo. Visita /docs para ver la API."}
+    return {"status": "online", "message": "Backend Monexia Activo"}

@@ -7,9 +7,9 @@ from .pagos_deuda import PagoDeuda
 class DeudaBase(BaseModel):
     nombre: str
     monto_total: float
-    # Campos obligatorios para el cálculo matemático del simulador
-    tasa_interes: Optional[float] = 0.0  # Porcentaje (ej: 2.0)
-    tipo_tasa: Optional[str] = "mensual" # 'mensual' o 'anual'
+    monto_pendiente: Optional[float] = None # <--- AGREGA ESTO
+    tasa_interes: Optional[float] = 0.0
+    tipo_tasa: Optional[str] = "mensual"
     fecha_inicio: Optional[datetime] = None
     fecha_limite: Optional[datetime] = None
 

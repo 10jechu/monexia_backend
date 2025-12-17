@@ -16,13 +16,17 @@ def get_deudas_by_usuario(db: Session, usuario_id: int, skip: int = 0, limit: in
     return db.query(Deuda).filter(Deuda.propietario_id == usuario_id).offset(skip).limit(limit).all()
 
 # ------------------------------------------------
-# CREATE
+# CREATE (CORREGIDO)
 # ------------------------------------------------
 
 def create_deuda(db: Session, deuda: DeudaCreate, usuario_id: int):
-    """Crea una nueva deuda asociada a un usuario."""
-    # Inicializa monto_pendiente con monto_total
-    db_deuda = Deuda(**deuda.model_dump(), propietario_id=usuario_id, monto_pendiente=deuda.monto_total)
+    """Crea una nueva deuda vinculada al usuario."""
+    # Usamos **deuda.model_dump() para pasar nombre, monto_total, 
+    # monto_pendiente, tasa_interes, etc., sin duplicar argumentos.
+    db_deuda = Deuda(
+        **deuda.model_dump(), 
+        propietario_id=usuario_id
+    )
     db.add(db_deuda)
     db.commit()
     db.refresh(db_deuda)
