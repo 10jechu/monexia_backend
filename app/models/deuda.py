@@ -1,4 +1,3 @@
-# app/models/deuda.py
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -12,11 +11,14 @@ class Deuda(Base):
     nombre = Column(String(100), nullable=False)
     monto_total = Column(Float, nullable=False)
     monto_pendiente = Column(Float, nullable=False)
+    
+    # NUEVO: Campos para el simulador matemático
+    tasa_interes = Column(Float, default=0.0)  # Ej: 2.0 para el 2%
+    tipo_tasa = Column(String(20), default="mensual") 
+    
     fecha_inicio = Column(DateTime, default=datetime.utcnow)
     fecha_limite = Column(DateTime)
     
     propietario_id = Column(Integer, ForeignKey("public.usuario.id"), nullable=False)
     propietario = relationship("Usuario", back_populates="deudas")
-    
-    # Relación con pagos_deuda
-    pagos = relationship("PagoDeuda", back_populates="deuda")
+    pagos = relationship("PagoDeuda", back_populates="deuda", cascade="all, delete-orphan")

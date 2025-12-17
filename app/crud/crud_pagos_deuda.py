@@ -1,8 +1,7 @@
-# app/crud/crud_pagos_deuda.py
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from ..models.pagos_deuda import PagoDeuda
-from ..models.deuda import Deuda # Necesario para actualizar el monto pendiente
+from ..models.deuda import Deuda 
 from ..schemas.pagos_deuda import PagoDeudaCreate, PagoDeudaUpdate
 
 # ------------------------------------------------
@@ -18,25 +17,48 @@ def get_pagos_by_deuda(db: Session, deuda_id: int, skip: int = 0, limit: int = 1
     return db.query(PagoDeuda).filter(PagoDeuda.deuda_id == deuda_id).offset(skip).limit(limit).all()
 
 # ------------------------------------------------
-# CREATE
+# CREATE (Lógica del Simulador Financiero)
 # ------------------------------------------------
 
 def create_pago_deuda(db: Session, pago: PagoDeudaCreate):
-    """Crea un nuevo pago de deuda y actualiza el monto pendiente de la deuda principal."""
+    """
+    Crea un nuevo pago. 
+    Aplica lógica de amortización: calcula interés del periodo y lo resta del abono 
+    antes de reducir el monto pendiente.
+    """
     db_deuda = db.query(Deuda).filter(Deuda.id == pago.deuda_id).first()
 
     if not db_deuda:
         raise HTTPException(status_code=404, detail="Deuda principal no encontrada.")
 
-    if db_deuda.monto_pendiente < pago.monto_pago:
-        raise HTTPException(status_code=400, detail="El monto del pago excede el monto pendiente de la deuda.")
+    if db_deuda.monto_pendiente <= 0:
+        raise HTTPException(status_code=400, detail="Esta deuda ya ha sido saldada.")
 
-    # 1. Crear el pago
+    # --- CÁLCULO MATEMÁTICO DEL SIMULADOR ---
+    # 1. Calcular el interés generado por el saldo actual
+    # Fórmula: Interés = Saldo Pendiente * (Tasa / 100)
+    interes_del_periodo = db_deuda.monto_pendiente * (db_deuda.tasa_interes / 100)
+    
+    # 2. Determinar cuánto dinero va realmente a bajar la deuda (Capital)
+    abono_a_capital = pago.monto_pago - interes_del_periodo
+
+    if abono_a_capital <= 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"El pago es insuficiente. El interés acumulado es de ${interes_del_periodo:,.2f}"
+        )
+
+    # 3. No permitir abonos mayores a la deuda pendiente real
+    if db_deuda.monto_pendiente < abono_a_capital:
+        abono_a_capital = db_deuda.monto_pendiente
+
+    # --- PERSISTENCIA EN BASE DE DATOS ---
+    # Guardamos el registro del pago
     db_pago = PagoDeuda(**pago.model_dump())
     db.add(db_pago)
     
-    # 2. Actualizar el monto pendiente de la deuda principal
-    db_deuda.monto_pendiente -= pago.monto_pago
+    # Actualizamos el saldo real de la deuda
+    db_deuda.monto_pendiente -= abono_a_capital
     
     db.commit()
     db.refresh(db_pago)
@@ -44,44 +66,27 @@ def create_pago_deuda(db: Session, pago: PagoDeudaCreate):
     return db_pago
 
 # ------------------------------------------------
-# UPDATE (Solo permite actualizar el monto, pero es complejo y rara vez se necesita)
-# ------------------------------------------------
-
-def update_pago_deuda(db: Session, db_pago: PagoDeuda, pago_in: PagoDeudaUpdate):
-    """Actualiza la información de un pago de deuda existente (solo campos simples)."""
-    # NO recomendamos cambiar el monto_pago directamente sin recalcular la deuda principal,
-    # pero aquí permitimos la actualización de otros campos (si existieran en el schema)
-    
-    update_data = pago_in.model_dump(exclude_unset=True)
-    
-    # Si se intenta cambiar el monto_pago, requeriría lógica compleja para revertir/reaplicar a la deuda
-    if "monto_pago" in update_data:
-        raise HTTPException(status_code=400, detail="La actualización del monto de pago requiere un proceso de reversión/reaplicación manual por la complejidad en la deuda principal.")
-    
-    for key, value in update_data.items():
-        if hasattr(db_pago, key):
-            setattr(db_pago, key, value)
-            
-    db.commit()
-    db.refresh(db_pago)
-    return db_pago
-
-# ------------------------------------------------
-# DELETE
+# DELETE (Lógica de Reversión)
 # ------------------------------------------------
 
 def delete_pago_deuda(db: Session, pago_deuda_id: int):
-    """Elimina un pago de deuda y revierte el monto a la deuda principal."""
+    """
+    Elimina un pago y revierte el monto al saldo pendiente.
+    Nota: Se asume reversión a capital simple para mantener integridad.
+    """
     db_pago = get_pago_deuda(db, pago_deuda_id)
     
     if db_pago:
-        # 1. Revertir el monto a la deuda principal
         db_deuda = db.query(Deuda).filter(Deuda.id == db_pago.deuda_id).first()
         if db_deuda:
-            db_deuda.monto_pendiente += db_pago.monto_pago
+            # Re-calculamos el interés que se había cobrado para devolver el capital exacto
+            interes_que_fue_cobrado = db_deuda.monto_pendiente * (db_deuda.tasa_interes / 100)
+            reversion_capital = db_pago.monto_pago - interes_que_fue_cobrado
+            
+            # Devolvemos el monto al saldo pendiente
+            db_deuda.monto_pendiente += max(0, reversion_capital)
             db.add(db_deuda)
             
-        # 2. Eliminar el pago
         db.delete(db_pago)
         db.commit()
         return True
