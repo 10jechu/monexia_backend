@@ -8,16 +8,17 @@ import {
 const MainLayout = ({ children }) => {
   const navigate = useNavigate();
   
-  const menuItems = [
-    { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20}/> },
+const menuItems = [
+    // CAMBIO AQUÍ: Debe ser /dashboard, no /
+    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20}/> }, 
     { name: 'Ingresos', path: '/ingresos', icon: <Wallet size={20} className="text-green-400"/> },
+    // Revisa si es /gastos o /gasto-fijo según tu App.jsx (tienes /gastos)
     { name: 'Gastos Fijos', path: '/gastos', icon: <TrendingDown size={20} className="text-rose-400"/> },
     { name: 'Deudas', path: '/deudas', icon: <AlertCircle size={20} className="text-orange-400"/> },
     { name: 'Metas Ahorro', path: '/metas', icon: <Target size={20} className="text-cyan-400"/> },
     { name: 'Cadenas', path: '/cadenas', icon: <Users size={20} className="text-purple-400"/> },
     { name: 'Movimientos', path: '/movimientos', icon: <History size={20}/> },
-  ];
-
+];
   return (
     <div className="flex h-screen bg-[#0f172a] text-slate-200">
       <aside className="w-64 bg-[#1e293b] border-r border-blue-500/10 p-6 flex flex-col">

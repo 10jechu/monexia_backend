@@ -1,56 +1,74 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../api/axios';
-import { Plus, Trash2, TrendingDown, Calendar, CreditCard } from 'lucide-react';
+import { Plus, Trash2, TrendingDown, CreditCard, Edit2, Check, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const GastoFijoPage = () => {
   const [gastos, setGastos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ 
-    monto: '', 
     nombre: '', 
+    monto: '', 
     fecha_pago: new Date().toISOString().split('T')[0] 
   });
+  const [editForm, setEditForm] = useState({ nombre: '', monto: '', fecha_pago: '' });
 
-  // 1. CARGA DE DATOS (Asegura que los registros anteriores siempre aparezcan)
+  // 1. Cargar Gastos (Ruta corregida a /gastos-fijos/)
   const fetchGastos = async () => {
     try {
-      setLoading(true);
-      const res = await api.get('/gastos/'); 
-      setGastos(res.data);
+      const res = await api.get('/gastos-fijos/');
+      setGastos(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Error cargando gastos", err);
-    } finally { 
-      setLoading(false); 
     }
   };
 
-  useEffect(() => { 
-    fetchGastos(); 
-  }, []);
+  useEffect(() => { fetchGastos(); }, []);
 
-  // 2. GUARDAR (Manda los datos y refresca la lista completa)
+  // 2. Crear Gasto
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/gastos/', { 
+      await api.post('/gastos-fijos/', { 
         ...form, 
         monto: parseFloat(form.monto) 
       });
-      // Limpia el formulario
-      setForm({ monto: '', nombre: '', fecha_pago: new Date().toISOString().split('T')[0] });
-      // RECARGA TODO: Esto soluciona que desaparezcan los registros anteriores
+      setForm({ nombre: '', monto: '', fecha_pago: new Date().toISOString().split('T')[0] });
       fetchGastos();
-      alert("¡Gasto registrado con éxito!");
-    } catch (err) { 
-      alert("Error al guardar: Verifica tu sesión."); 
+    } catch (err) {
+      alert("Error al guardar el gasto.");
     }
   };
 
-  // 3. ELIMINAR
+  // 3. Iniciar Edición
+  const startEdit = (g) => {
+    setEditingId(g.id);
+    setEditForm({ 
+      nombre: g.nombre, 
+      monto: g.monto, 
+      fecha_pago: g.fecha_pago ? g.fecha_pago.split('T')[0] : '' 
+    });
+  };
+
+  // 4. Guardar Edición (Ruta corregida)
+  const saveEdit = async (id) => {
+    try {
+      await api.patch(`/gastos-fijos/${id}`, {
+        ...editForm,
+        monto: parseFloat(editForm.monto)
+      });
+      setEditingId(null);
+      fetchGastos();
+    } catch (err) {
+      alert("Error al actualizar");
+    }
+  };
+
+  // 5. Eliminar Gasto
   const deleteGasto = async (id) => {
-    if (window.confirm("¿Eliminar este gasto?")) {
+    if (window.confirm("¿Eliminar este gasto fijo?")) {
       try {
-        await api.delete(`/gastos/${id}`);
+        await api.delete(`/gastos-fijos/${id}`);
         fetchGastos();
       } catch (err) {
         alert("Error al eliminar");
@@ -58,103 +76,122 @@ const GastoFijoPage = () => {
     }
   };
 
-  // Función para que la fecha no salga con "T00:00:00"
-  const formatFecha = (fechaStr) => {
-    if (!fechaStr) return "Sin fecha";
-    return fechaStr.split('T')[0];
-  };
-
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500 p-4">
-      <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-        <TrendingDown className="text-rose-400" size={32} /> Gastos Mensuales
-      </h2>
+    <div className="max-w-5xl mx-auto space-y-8 p-4">
+      {/* Encabezado con Animación */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex justify-between items-center"
+      >
+        <div>
+          <h2 className="text-3xl font-black text-white flex items-center gap-3">
+            <TrendingDown className="text-rose-500" size={32} /> Gastos Mensuales
+          </h2>
+          <p className="text-slate-400 text-sm italic">Gestiona tus responsabilidades fijas</p>
+        </div>
+        <div className="bg-rose-500/10 border border-rose-500/20 px-6 py-3 rounded-2xl text-right">
+          <p className="text-[10px] text-rose-300 font-bold uppercase tracking-widest">Total Mensual</p>
+          <p className="text-2xl font-black text-rose-500">
+            -${gastos.reduce((a, b) => a + Number(b.monto || 0), 0).toLocaleString('es-CO')}
+          </p>
+        </div>
+      </motion.div>
 
-      {/* Formulario de registro */}
-      <form onSubmit={handleSubmit} className="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 grid grid-cols-1 md:grid-cols-4 gap-4 items-end shadow-xl">
+      {/* Formulario de Registro (Estilo Ingresos: Verde Fluo) */}
+      <motion.form 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        onSubmit={handleSubmit} 
+        className="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 grid grid-cols-1 md:grid-cols-4 gap-4 items-end shadow-xl"
+      >
         <div>
-          <label className="text-xs text-slate-400 uppercase font-bold mb-2 block">Servicio / Gasto</label>
-          <input 
-            type="text" placeholder="Ej. Arriendo" 
-            className="w-full bg-[#0f172a] border border-slate-600 p-2.5 rounded-lg text-white focus:border-rose-400 outline-none transition-all"
-            value={form.nombre} 
-            onChange={e => setForm({...form, nombre: e.target.value})} 
-            required 
-          />
+          <label className="text-[10px] text-slate-400 uppercase font-black mb-2 block tracking-wider">Servicio / Gasto</label>
+          <input type="text" className="w-full bg-[#0f172a] border border-slate-600 p-2.5 rounded-lg text-white outline-none focus:border-rose-500 transition-all"
+            value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required placeholder="Ej: Arriendo" />
         </div>
         <div>
-          <label className="text-xs text-slate-400 uppercase font-bold mb-2 block">Monto ($)</label>
-          <input 
-            type="number" 
-            placeholder="0.00"
-            className="w-full bg-[#0f172a] border border-slate-600 p-2.5 rounded-lg text-white focus:border-rose-400 outline-none transition-all"
-            value={form.monto} 
-            onChange={e => setForm({...form, monto: e.target.value})} 
-            required 
-          />
+          <label className="text-[10px] text-slate-400 uppercase font-black mb-2 block tracking-wider">Monto ($)</label>
+          <input type="number" className="w-full bg-[#0f172a] border border-slate-600 p-2.5 rounded-lg text-white outline-none focus:border-rose-500 transition-all"
+            value={form.monto} onChange={e => setForm({...form, monto: e.target.value})} required placeholder="0.00" />
         </div>
         <div>
-          <label className="text-xs text-slate-400 uppercase font-bold mb-2 block">Fecha de Pago</label>
-          <input 
-            type="date" 
-            className="w-full bg-[#0f172a] border border-slate-600 p-2.5 rounded-lg text-white focus:border-rose-400 outline-none transition-all"
-            value={form.fecha_pago} 
-            onChange={e => setForm({...form, fecha_pago: e.target.value})} 
-          />
+          <label className="text-[10px] text-slate-400 uppercase font-black mb-2 block tracking-wider">Fecha de Pago</label>
+          <input type="date" className="w-full bg-[#0f172a] border border-slate-600 p-2.5 rounded-lg text-white outline-none focus:border-rose-500 transition-all"
+            value={form.fecha_pago} onChange={e => setForm({...form, fecha_pago: e.target.value})} />
         </div>
-        <button type="submit" className="bg-rose-500 hover:bg-rose-400 text-white font-bold py-2.5 rounded-lg flex justify-center items-center gap-2 shadow-lg shadow-rose-500/20 transition-all active:scale-95">
-          <Plus size={20} /> Registrar
+        <button type="submit" className="bg-[#00e676] hover:bg-[#00c853] text-[#0f172a] font-black py-2.5 rounded-lg flex justify-center items-center gap-2 transition-all active:scale-95 shadow-lg shadow-green-500/20 uppercase text-xs tracking-widest">
+          <Plus size={18} strokeWidth={3} /> Registrar
         </button>
-      </form>
+      </motion.form>
 
-      {/* Tabla de resultados */}
+      {/* Tabla de Gastos con Imperatividad */}
       <div className="bg-[#1e293b] rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-[#2d3a4f] text-slate-300 text-sm uppercase">
-              <tr>
-                <th className="p-4 font-semibold">Gasto</th>
-                <th className="p-4 text-center font-semibold">Monto</th>
-                <th className="p-4 text-center font-semibold">Fecha</th>
-                <th className="p-4 text-center font-semibold">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700 text-slate-300">
+        <table className="w-full text-left text-slate-300">
+          <thead className="bg-[#0f172a] text-[10px] uppercase tracking-[0.2em] text-slate-500">
+            <tr>
+              <th className="p-4 font-black">Gasto / Servicio</th>
+              <th className="p-4 text-center font-black">Monto</th>
+              <th className="p-4 text-center font-black">Fecha</th>
+              <th className="p-4 text-center font-black">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-700/50">
+            <AnimatePresence>
               {gastos.map((g) => (
-                <tr key={g.id} className="hover:bg-slate-700/30 transition-colors">
-                  <td className="p-4 flex items-center gap-2 uppercase text-sm tracking-tighter">
-                    <CreditCard size={14} className="text-rose-400"/> 
-                    {/* SI NO SALE EL NOMBRE, CAMBIA 'nombre' POR 'fuente' O 'concepto' */}
-                    {g.nombre || "Sin nombre"}
-                  </td>
-                  <td className="p-4 font-bold text-rose-400 text-center">
-                    -${Number(g.monto).toLocaleString('es-CO')}
-                  </td>
-                  <td className="p-4 text-sm text-slate-400 text-center">
-                    <div className="flex justify-center items-center gap-2">
-                      <Calendar size={14}/> {formatFecha(g.fecha_pago)}
-                    </div>
-                  </td>
-                  <td className="p-4 text-center">
-                    <button 
-                      onClick={() => deleteGasto(g.id)} 
-                      className="text-slate-500 hover:text-rose-500 p-2 transition-colors rounded-lg hover:bg-rose-500/10"
-                    >
-                      <Trash2 size={18}/>
-                    </button>
-                  </td>
-                </tr>
+                <motion.tr 
+                  key={g.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="hover:bg-slate-800/40 transition-colors group"
+                >
+                  {editingId === g.id ? (
+                    <>
+                      <td className="p-2"><input className="bg-slate-900 border border-rose-500 p-2 rounded w-full text-sm text-white" value={editForm.nombre} onChange={e => setEditForm({...editForm, nombre: e.target.value})}/></td>
+                      <td className="p-2"><input type="number" className="bg-slate-900 border border-rose-500 p-2 rounded w-full text-sm text-center text-white font-bold" value={editForm.monto} onChange={e => setEditForm({...editForm, monto: e.target.value})}/></td>
+                      <td className="p-2"><input type="date" className="bg-slate-900 border border-rose-500 p-2 rounded w-full text-sm text-center text-white" value={editForm.fecha_pago} onChange={e => setEditForm({...editForm, fecha_pago: e.target.value})}/></td>
+                      <td className="p-2 text-center">
+                        <div className="flex justify-center gap-2">
+                          <button onClick={() => saveEdit(g.id)} className="bg-green-500/20 text-green-400 p-2 rounded-lg hover:bg-green-500/40 transition-all"><Check size={18}/></button>
+                          <button onClick={() => setEditingId(null)} className="bg-rose-500/20 text-rose-400 p-2 rounded-lg hover:bg-rose-500/40 transition-all"><X size={18}/></button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-4 flex items-center gap-3 uppercase text-[12px] font-bold tracking-tight">
+                        <div className="bg-rose-500/10 p-2 rounded-lg group-hover:bg-rose-500/20 transition-colors">
+                          <CreditCard size={14} className="text-rose-400"/>
+                        </div>
+                        {g.nombre}
+                      </td>
+                      <td className="p-4 font-black text-rose-500 text-center text-base">
+                        -${Number(g.monto).toLocaleString('es-CO')}
+                      </td>
+                      <td className="p-4 text-[11px] font-black text-slate-500 text-center">
+                        {g.fecha_pago?.split('T')[0]}
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => startEdit(g)} className="text-cyan-400 hover:bg-cyan-400/10 p-2 rounded-lg transition-all active:scale-90">
+                            <Edit2 size={18}/>
+                          </button>
+                          <button onClick={() => deleteGasto(g.id)} className="text-slate-500 hover:text-rose-500 p-2 rounded-lg transition-all active:scale-90">
+                            <Trash2 size={18}/>
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  )}
+                </motion.tr>
               ))}
-              {gastos.length === 0 && !loading && (
-                <tr>
-                  <td colSpan="4" className="p-10 text-center text-slate-500 italic">
-                    No hay gastos fijos registrados.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            </AnimatePresence>
+          </tbody>
+        </table>
+        {gastos.length === 0 && (
+          <div className="p-12 text-center text-slate-500 italic text-sm">No hay gastos registrados en esta categoría.</div>
+        )}
       </div>
     </div>
   );
