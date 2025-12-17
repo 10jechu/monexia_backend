@@ -2,7 +2,7 @@
 from sqlalchemy.orm import Session
 from ..models.usuario import Usuario
 from ..schemas.usuario import UsuarioCreate, UsuarioUpdate
-from ..utils.auth import get_password_hash # Necesario para el registro
+from ..utils.security import get_password_hash
 
 # ------------------------------------------------
 # READ
@@ -24,21 +24,21 @@ def get_usuarios(db: Session, skip: int = 0, limit: int = 100):
 # CREATE
 # ------------------------------------------------
 
-def create_usuario(db: Session, user: UsuarioCreate):
-    """Crea un nuevo usuario en la base de datos."""
-    hashed_password = get_password_hash(user.password)
+def create_usuario(db: Session, usuario: UsuarioCreate):
+    """Crea un nuevo usuario con la contraseña hasheada."""
+    hashed_password = get_password_hash(usuario.password)
     
-    db_user = Usuario(
-        nombre=user.nombre,
-        email=user.email,
-        password_hash=hashed_password,
-        rol=user.rol or "Miembro",
+    db_usuario = Usuario(
+        nombre=usuario.nombre,
+        email=usuario.email,
+        rol=usuario.rol,
+        password_hash=hashed_password,  # Se guarda el hash, no la plana
+        activo=True
     )
-    
-    db.add(db_user)
+    db.add(db_usuario)
     db.commit()
-    db.refresh(db_user)
-    return db_user
+    db.refresh(db_usuario)
+    return db_usuario
 
 # ------------------------------------------------
 # UPDATE
@@ -52,7 +52,6 @@ def update_usuario(db: Session, db_user: Usuario, user_in: UsuarioUpdate):
         update_data["password_hash"] = get_password_hash(update_data.pop("password"))
 
     for key, value in update_data.items():
-        # Usar getattr para actualizar solo las propiedades que existen en el modelo
         if hasattr(db_user, key):
             setattr(db_user, key, value)
     
@@ -67,10 +66,8 @@ def update_usuario(db: Session, db_user: Usuario, user_in: UsuarioUpdate):
 def delete_usuario(db: Session, usuario_id: int):
     """Elimina un usuario por su ID."""
     db_user = get_usuario(db, usuario_id)
-    
     if db_user:
         db.delete(db_user)
         db.commit()
         return True
-        
     return False

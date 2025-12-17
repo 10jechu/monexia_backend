@@ -9,6 +9,7 @@ from .database import Base, engine
 from .models import usuario, ingreso, gasto_fijo, deuda, meta_ahorro, movimiento, pagos_deuda
 from .models import cadena, participante_cadena 
 
+
 # -----------------------------------------------------------------
 # 2. Importa TODOS los routers y RENOMBRA
 # -----------------------------------------------------------------
@@ -21,6 +22,8 @@ from .routers import pagos_deuda as pagos_deuda_router
 from .routers import meta_ahorro as meta_ahorro_router
 from .routers import movimiento as movimiento_router
 from .routers import cadena as cadena_router 
+from .routers import dashboard as dashboard_router
+
 
 # -----------------------------------------------------------------
 # 3. Crear las tablas
@@ -46,7 +49,7 @@ app.include_router(pagos_deuda_router.router)
 app.include_router(meta_ahorro_router.router)   
 app.include_router(movimiento_router.router)    
 app.include_router(cadena_router.router)        
-
+app.include_router(dashboard_router.router)
 # Endpoint raíz
 @app.get("/")
 def read_root():

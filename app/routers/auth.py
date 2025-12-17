@@ -9,7 +9,8 @@ from datetime import timedelta
 from app.database import get_db
 from app.core.config import settings 
 from app.crud import crud_usuario
-from app.utils.auth import authenticate_user, create_access_token, get_password_hash # Importa las funciones del otro archivo
+from app.utils.auth import authenticate_user, create_access_token
+from app.utils.security import get_password_hash # Importa desde security
 
 # Importaciones relativas
 from ..schemas.token import Token
@@ -22,17 +23,17 @@ router = APIRouter(
 )
 
 # 2. ENDPOINT DE REGISTRO
-@router.post("/register", response_model=usuario_schemas.Usuario, status_code=status.HTTP_201_CREATED)
+# app/routers/auth.py
+
+@router.post("/register") # O el nombre que tenga tu ruta de registro
 def register_user(user: usuario_schemas.UsuarioCreate, db: Session = Depends(get_db)):
+    # 1. Verificar si el usuario ya existe
     db_user = crud_usuario.get_usuario_by_email(db, email=user.email)
     if db_user:
-        raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado")
+        raise HTTPException(status_code=400, detail="Email ya registrado")
     
-    hashed_password = get_password_hash(user.password)
-    user_data = user.model_dump(exclude={"password"})
-    user_data["password_hash"] = hashed_password 
-    
-    return crud_usuario.create_usuario(db=db, user=usuario_schemas.UsuarioCreate(**user_data))
+    # 2. Llamar directamente al CRUD pasando el esquema que FastAPI ya validó
+    return crud_usuario.create_usuario(db=db, usuario=user)
 
 # 3. ENDPOINT DE LOGIN (Obtener Token)
 @router.post("/token", response_model=Token)
