@@ -23,7 +23,7 @@ from .routers import meta_ahorro as meta_ahorro_router
 from .routers import movimiento as movimiento_router
 from .routers import cadena as cadena_router 
 from .routers import dashboard as dashboard_router
-
+from fastapi.middleware.cors import CORSMiddleware
 
 # -----------------------------------------------------------------
 # 3. Crear las tablas
@@ -36,7 +36,13 @@ app = FastAPI(
     description="Backend para la gestión de finanzas personales y familiares. ¡CRUD Completo!",
     version="1.0.0"
 )
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # En producción cambia esto por la URL de tu front
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # -----------------------------------------------------------------
 # 5. Incluye TODOS los routers
 # -----------------------------------------------------------------
@@ -50,6 +56,7 @@ app.include_router(meta_ahorro_router.router)
 app.include_router(movimiento_router.router)    
 app.include_router(cadena_router.router)        
 app.include_router(dashboard_router.router)
+
 # Endpoint raíz
 @app.get("/")
 def read_root():
