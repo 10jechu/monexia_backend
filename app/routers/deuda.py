@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
 
 from ..database import get_db
 from ..schemas import deuda as deuda_schemas, usuario as usuario_schemas
 from ..crud import crud_deuda
+from ..models import movimiento as movimiento_models
 from ..utils.auth import get_current_active_user
 
+# ESTO ES LO QUE BUSCA EL MAIN.PY
 router = APIRouter(
     prefix="/deudas",
     tags=["Deudas"],
@@ -18,8 +21,21 @@ def create_deuda_for_user(
     db: Session = Depends(get_db),
     current_user: usuario_schemas.Usuario = Depends(get_current_active_user)
 ):
-    """Crea una deuda. El esquema ya incluye tasa_interes."""
-    return crud_deuda.create_deuda(db=db, deuda=deuda, usuario_id=current_user.id)
+    nueva_deuda = crud_deuda.create_deuda(db=db, deuda=deuda, usuario_id=current_user.id)
+    
+   # Crear movimiento automático (Corregido sin tilde)
+    nuevo_movimiento = movimiento_models.Movimiento(
+        descripcion=f"REGISTRO DEUDA: {deuda.nombre}", 
+        monto=deuda.monto_total,
+        tipo="deuda", 
+        fecha=datetime.now(),
+        usuario_id=current_user.id
+    )
+    
+    db.add(nuevo_movimiento)
+    db.commit()
+    db.refresh(nueva_deuda)
+    return nueva_deuda
 
 @router.get("/", response_model=List[deuda_schemas.Deuda])
 def read_deudas(
@@ -28,21 +44,19 @@ def read_deudas(
 ):
     return crud_deuda.get_deudas_by_usuario(db, usuario_id=current_user.id, skip=skip, limit=limit)
 
-@router.get("/{deuda_id}", response_model=deuda_schemas.Deuda)
-def read_deuda(deuda_id: int, db: Session = Depends(get_db),
-               current_user: usuario_schemas.Usuario = Depends(get_current_active_user)):
-    db_deuda = crud_deuda.get_deuda(db, deuda_id=deuda_id)
-    if db_deuda is None or db_deuda.propietario_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Deuda no encontrada")
-    return db_deuda
-
 @router.patch("/{deuda_id}", response_model=deuda_schemas.Deuda)
-def update_deuda(deuda_id: int, deuda_in: deuda_schemas.DeudaUpdate, db: Session = Depends(get_db),
-                 current_user: usuario_schemas.Usuario = Depends(get_current_active_user)):
+def update_deuda(
+    deuda_id: int, 
+    deuda_update: deuda_schemas.DeudaUpdate, 
+    db: Session = Depends(get_db),
+    current_user: usuario_schemas.Usuario = Depends(get_current_active_user)
+):
     db_deuda = crud_deuda.get_deuda(db, deuda_id=deuda_id)
-    if db_deuda is None or db_deuda.propietario_id != current_user.id:
+    if not db_deuda or db_deuda.propietario_id != current_user.id:
         raise HTTPException(status_code=404, detail="Deuda no encontrada")
-    return crud_deuda.update_deuda(db, db_deuda=db_deuda, deuda_in=deuda_in)
+    
+    # IMPORTANTE: Los nombres de argumentos deben coincidir con tu CRUD
+    return crud_deuda.update_deuda(db=db, db_obj=db_deuda, obj_in=deuda_update)
 
 @router.delete("/{deuda_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_deuda(deuda_id: int, db: Session = Depends(get_db),

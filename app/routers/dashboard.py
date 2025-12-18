@@ -7,36 +7,43 @@ from app.utils.auth import get_current_active_user
 from app.models.usuario import Usuario
 from app.models.ingreso import Ingreso
 from app.models.gasto_fijo import GastoFijo
+from app.models.deuda import Deuda  # <--- IMPORTANTE: Importar el modelo Deuda
 
 router = APIRouter(
     prefix="/dashboard",
     tags=["Dashboard"]
 )
 
-# app/routers/dashboard.py
-
-@router.get("/consolidado")
-def get_consolidado(
+@router.get("/resumen") # Cambiado a /resumen para que coincida con tu frontend
+def get_resumen(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
-    # 1. Sumar ingresos usando 'propietario_id'
+    # 1. Sumar ingresos
     total_ingresos = db.query(func.sum(Ingreso.monto)).filter(
-        Ingreso.propietario_id == current_user.id # <--- Cambiado aquí
+        Ingreso.propietario_id == current_user.id
     ).scalar() or 0.0
 
-    # 2. Sumar gastos (Verifica si en gasto_fijo.py también se llama propietario_id)
+    # 2. Sumar gastos fijos
     total_gastos = db.query(func.sum(GastoFijo.monto)).filter(
-        GastoFijo.propietario_id == current_user.id # <--- Verifica este nombre en su modelo
+        GastoFijo.propietario_id == current_user.id
     ).scalar() or 0.0
 
-    balance = total_ingresos - total_gastos
+    # 3. Sumar DEUDAS (Lo que faltaba)
+    # Sumamos el monto_total de las deudas activas del usuario
+    total_deudas = db.query(func.sum(Deuda.monto_total)).filter(
+        Deuda.propietario_id == current_user.id
+    ).scalar() or 0.0
+
+    # 4. Cálculo del sueldo disponible (Para el widget verde de Metas)
+    sueldo_disponible = total_ingresos - total_gastos
 
     return {
         "usuario": current_user.nombre,
         "total_ingresos": float(total_ingresos),
         "total_gastos": float(total_gastos),
-        "balance": float(balance),
-        "mensaje": "¡Dashboard actualizado!",
+        "total_deudas": float(total_deudas), # <--- Ahora el frontend verá el monto real
+        "sueldo_disponible": float(sueldo_disponible), # <--- Lo que usa el widget de Metas
+        "balance": float(sueldo_disponible),
         "moneda": "COP"
     }

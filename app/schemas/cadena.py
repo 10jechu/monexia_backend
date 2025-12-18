@@ -1,25 +1,22 @@
-# app/schemas/cadena.py
 from pydantic import BaseModel
-from typing import List
-
-# Importamos ParticipanteCadena
-from .participante_cadena import ParticipanteCadena # Importación relativa
+from typing import List, Optional
+from .participante_cadena import ParticipanteCadena
 
 class CadenaAhorroBase(BaseModel):
     nombre: str
-    monto_fijo: float
+    monto_fijo: float = 0.0
 
 class CadenaAhorroCreate(CadenaAhorroBase):
     pass
 
-class CadenaAhorroUpdate(CadenaAhorroBase):
-    nombre: str | None = None
-    monto_fijo: float | None = None
+class CadenaAhorroUpdate(BaseModel):
+    nombre: Optional[str] = None
+    monto_fijo: Optional[float] = None
 
 class CadenaAhorro(CadenaAhorroBase):
     id: int
-    # Relación: Incluir lista de participantes
-    participantes: List[ParticipanteCadena] = [] 
-    
+    # Esto permite que al consultar la cadena veas a los participantes y sus metas
+    participantes: List[ParticipanteCadena] = []
+
     class Config:
         from_attributes = True

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import api from '../../api/axios';
-import { useNavigate, Link } from 'react-router-dom'; // Añadimos Link
-import { Lock, User, LogIn } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Lock, User, LogIn, Shield } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -14,68 +15,54 @@ const Login = () => {
       const formData = new FormData();
       formData.append('username', username);
       formData.append('password', password);
-
       const res = await api.post('/auth/token', formData);
-      
       localStorage.setItem('token', res.data.access_token);
-      
-      // CAMBIO IMPORTANTE: Mandar al dashboard, no a la raíz
       navigate('/dashboard'); 
-      
-    } catch (err) {
-      alert("Usuario o contraseña incorrectos");
-    }
+    } catch (err) { alert("Credenciales inválidas."); }
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4">
-      <div className="bg-[#1e293b] p-8 rounded-3xl border border-slate-700 shadow-2xl w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-cyan-400 italic mb-2 tracking-tighter">MONEXIA</h1>
-          <p className="text-slate-400 text-sm font-light">Bienvenido de nuevo, ingresa tus datos</p>
+    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-[#0f172a] p-10 rounded-[3rem] border border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.5)] w-full max-w-md relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 p-8 opacity-10 text-cyan-400"><Shield size={100} /></div>
+        
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-black text-white italic tracking-tighter mb-2">MONEX<span className="text-cyan-400">IA</span></h1>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em]">Auth Protocol 1.0</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-xs text-slate-400 uppercase font-bold tracking-wider flex items-center gap-2">
-              <User size={14} className="text-cyan-400"/> Usuario / Email
-            </label>
-            <input 
-              type="text" 
-              className="w-full bg-[#0f172a] border border-slate-600 p-3 rounded-xl text-white outline-none focus:border-cyan-400 transition-all placeholder:text-slate-600"
-              placeholder="Ej: luisvilatu"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
+            <label className="text-[10px] text-slate-500 uppercase font-black ml-2 tracking-widest">User ID</label>
+            <div className="relative">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18}/>
+              <input type="text" className="w-full bg-[#1e293b] border border-slate-700 p-4 pl-12 rounded-2xl text-white outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-bold"
+                placeholder="USERNAME" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs text-slate-400 uppercase font-bold tracking-wider flex items-center gap-2">
-              <Lock size={14} className="text-cyan-400"/> Contraseña
-            </label>
-            <input 
-              type="password" 
-              className="w-full bg-[#0f172a] border border-slate-600 p-3 rounded-xl text-white outline-none focus:border-cyan-400 transition-all placeholder:text-slate-600"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <label className="text-[10px] text-slate-500 uppercase font-black ml-2 tracking-widest">Secret Key</label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18}/>
+              <input type="password" className="w-full bg-[#1e293b] border border-slate-700 p-4 pl-12 rounded-2xl text-white outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-bold"
+                placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </div>
           </div>
 
-          <button 
-            type="submit" 
-            className="w-full bg-cyan-500 hover:bg-cyan-400 text-[#0f172a] font-black py-4 rounded-2xl flex justify-center items-center gap-2 transition-all shadow-lg shadow-cyan-500/20 active:scale-95"
-          >
-            <LogIn size={20} /> ENTRAR AL SISTEMA
+          <button type="submit" className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-black py-4 rounded-2xl flex justify-center items-center gap-2 transition-all shadow-lg shadow-cyan-500/20 active:scale-95 uppercase text-sm tracking-widest">
+            <LogIn size={20} strokeWidth={3} /> Desbloquear
           </button>
         </form>
 
-        <p className="mt-8 text-center text-slate-500 text-sm">
-          ¿No tienes cuenta? <Link to="/register" className="text-cyan-400 hover:underline font-bold">Crea una aquí</Link>
+        <p className="mt-8 text-center text-slate-500 text-[11px] font-bold">
+          ¿NUEVO AQUÍ? <Link to="/register" className="text-cyan-400 hover:text-white transition-colors underline underline-offset-4">INICIAR REGISTRO</Link>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 };

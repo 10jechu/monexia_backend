@@ -10,6 +10,9 @@ class GastoFijo(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), nullable=False)
     monto = Column(Float, nullable=False)
+    # --- COLUMNA NUEVA ---
+    fecha_pago = Column(String(20), nullable=True) 
+    # ---------------------
     recurrencia = Column(String(50))
     pagado = Column(Boolean, default=False)
     

@@ -1,197 +1,225 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../api/axios';
-import { Plus, Trash2, TrendingDown, CreditCard, Edit2, Check, X } from 'lucide-react';
+import { 
+  Plus, Trash2, TrendingDown, CreditCard, 
+  Edit2, Check, X, Wallet, Calendar, Filter, ChevronRight
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const GastoFijoPage = () => {
   const [gastos, setGastos] = useState([]);
+  const [saldo, setSaldo] = useState(0);
   const [editingId, setEditingId] = useState(null);
+  const [verTodo, setVerTodo] = useState(false);
+  
   const [form, setForm] = useState({ 
     nombre: '', 
     monto: '', 
     fecha_pago: new Date().toISOString().split('T')[0] 
   });
-  const [editForm, setEditForm] = useState({ nombre: '', monto: '', fecha_pago: '' });
+  
+  const [editForm, setEditForm] = useState({ 
+    nombre: '', 
+    monto: '', 
+    fecha_pago: '' 
+  });
 
-  // 1. Cargar Gastos (Ruta corregida a /gastos-fijos/)
-  const fetchGastos = async () => {
+  const fetchData = async () => {
     try {
-      const res = await api.get('/gastos-fijos/');
-      setGastos(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error("Error cargando gastos", err);
+      const [resG, resI] = await Promise.all([
+        api.get('/gastos/'),
+        api.get('/ingresos/')
+      ]);
+      setGastos(resG.data);
+      
+      const totalI = resI.data.reduce((a, b) => a + Number(b.monto), 0);
+      const totalG = resG.data.reduce((a, b) => a + Number(b.monto), 0);
+      setSaldo(totalI - totalG);
+    } catch (err) { 
+      console.error("Error cargando datos:", err); 
     }
   };
 
-  useEffect(() => { fetchGastos(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
-  // 2. Crear Gasto
+  // LÓGICA DE FILTRADO POR MES ACTUAL
+  const gastosFiltrados = verTodo ? gastos : gastos.filter(g => {
+    const fechaRef = g.fecha_pago || g.fecha;
+    if (!fechaRef) return true;
+    const fechaGasto = new Date(fechaRef);
+    const ahora = new Date();
+    return fechaGasto.getMonth() === ahora.getMonth() && 
+           fechaGasto.getFullYear() === ahora.getFullYear();
+  });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/gastos-fijos/', { 
-        ...form, 
-        monto: parseFloat(form.monto) 
-      });
+      await api.post('/gastos/', { ...form, monto: parseFloat(form.monto) });
       setForm({ nombre: '', monto: '', fecha_pago: new Date().toISOString().split('T')[0] });
-      fetchGastos();
-    } catch (err) {
-      alert("Error al guardar el gasto.");
-    }
+      fetchData();
+    } catch (err) { alert("Error al guardar."); }
   };
 
-  // 3. Iniciar Edición
   const startEdit = (g) => {
     setEditingId(g.id);
     setEditForm({ 
       nombre: g.nombre, 
       monto: g.monto, 
-      fecha_pago: g.fecha_pago ? g.fecha_pago.split('T')[0] : '' 
+      fecha_pago: (g.fecha_pago || g.fecha || '').split('T')[0] 
     });
   };
 
-  // 4. Guardar Edición (Ruta corregida)
   const saveEdit = async (id) => {
     try {
-      await api.patch(`/gastos-fijos/${id}`, {
-        ...editForm,
-        monto: parseFloat(editForm.monto)
-      });
+      await api.patch(`/gastos/${id}`, { ...editForm, monto: parseFloat(editForm.monto) });
       setEditingId(null);
-      fetchGastos();
-    } catch (err) {
-      alert("Error al actualizar");
-    }
+      fetchData();
+    } catch (err) { alert("Error al actualizar"); }
   };
 
-  // 5. Eliminar Gasto
   const deleteGasto = async (id) => {
-    if (window.confirm("¿Eliminar este gasto fijo?")) {
+    if (window.confirm("¿Deseas eliminar este gasto fijo?")) {
       try {
-        await api.delete(`/gastos-fijos/${id}`);
-        fetchGastos();
-      } catch (err) {
-        alert("Error al eliminar");
-      }
+        await api.delete(`/gastos/${id}`);
+        fetchData();
+      } catch (err) { alert("Error al eliminar"); }
     }
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 p-4">
-      {/* Encabezado con Animación */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex justify-between items-center"
-      >
+    <div className="max-w-6xl mx-auto space-y-8 p-6 text-left">
+      {/* HEADER DINÁMICO */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h2 className="text-3xl font-black text-white flex items-center gap-3">
-            <TrendingDown className="text-rose-500" size={32} /> Gastos Mensuales
-          </h2>
-          <p className="text-slate-400 text-sm italic">Gestiona tus responsabilidades fijas</p>
+          <motion.h2 initial={{ x: -20 }} animate={{ x: 0 }} className="text-4xl font-black text-white flex items-center gap-3 italic tracking-tighter">
+            <TrendingDown className="text-rose-500" size={40} /> GASTOS FIJOS
+          </motion.h2>
+          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.3em] mt-1 ml-1">Control de egresos mensuales</p>
         </div>
-        <div className="bg-rose-500/10 border border-rose-500/20 px-6 py-3 rounded-2xl text-right">
-          <p className="text-[10px] text-rose-300 font-bold uppercase tracking-widest">Total Mensual</p>
-          <p className="text-2xl font-black text-rose-500">
-            -${gastos.reduce((a, b) => a + Number(b.monto || 0), 0).toLocaleString('es-CO')}
-          </p>
-        </div>
-      </motion.div>
+        
+        <div className="flex gap-4 items-center">
+          <button 
+            onClick={() => setVerTodo(!verTodo)}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl border font-black text-[10px] uppercase transition-all shadow-lg ${verTodo ? 'bg-rose-500 text-white border-rose-500 shadow-rose-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}
+          >
+            <Filter size={14} /> {verTodo ? 'Historial Completo' : 'Mes Actual'}
+          </button>
 
-      {/* Formulario de Registro (Estilo Ingresos: Verde Fluo) */}
+          <div className="bg-[#1e293b] border border-slate-700 px-6 py-3 rounded-[2rem] shadow-xl">
+            <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest flex items-center justify-end gap-2 mb-1">
+              <Wallet size={12} className="text-green-400"/> Saldo Restante
+            </p>
+            <p className="text-2xl font-black text-white italic tracking-tighter">${saldo.toLocaleString('es-CO')}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* FORMULARIO DE REGISTRO */}
       <motion.form 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         onSubmit={handleSubmit} 
-        className="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 grid grid-cols-1 md:grid-cols-4 gap-4 items-end shadow-xl"
+        className="bg-[#1e293b] p-8 rounded-[2.5rem] border border-slate-700 grid grid-cols-1 md:grid-cols-4 gap-6 items-end shadow-2xl relative overflow-hidden"
       >
-        <div>
-          <label className="text-[10px] text-slate-400 uppercase font-black mb-2 block tracking-wider">Servicio / Gasto</label>
-          <input type="text" className="w-full bg-[#0f172a] border border-slate-600 p-2.5 rounded-lg text-white outline-none focus:border-rose-500 transition-all"
-            value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required placeholder="Ej: Arriendo" />
+        <div className="absolute top-0 left-0 w-1 h-full bg-rose-500" />
+        <div className="space-y-2 text-left">
+          <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Descripción</label>
+          <input type="text" className="w-full bg-[#0f172a] border border-slate-700 p-3.5 rounded-xl text-white font-bold focus:border-rose-500 outline-none transition-all placeholder:text-slate-700"
+            value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required placeholder="Eje: Arriendo" />
         </div>
-        <div>
-          <label className="text-[10px] text-slate-400 uppercase font-black mb-2 block tracking-wider">Monto ($)</label>
-          <input type="number" className="w-full bg-[#0f172a] border border-slate-600 p-2.5 rounded-lg text-white outline-none focus:border-rose-500 transition-all"
-            value={form.monto} onChange={e => setForm({...form, monto: e.target.value})} required placeholder="0.00" />
+        <div className="space-y-2 text-left">
+          <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Monto ($)</label>
+          <input type="number" className="w-full bg-[#0f172a] border border-slate-700 p-3.5 rounded-xl text-white font-bold focus:border-rose-500 outline-none transition-all"
+            value={form.monto} onChange={e => setForm({...form, monto: e.target.value})} required placeholder="0" />
         </div>
-        <div>
-          <label className="text-[10px] text-slate-400 uppercase font-black mb-2 block tracking-wider">Fecha de Pago</label>
-          <input type="date" className="w-full bg-[#0f172a] border border-slate-600 p-2.5 rounded-lg text-white outline-none focus:border-rose-500 transition-all"
+        <div className="space-y-2 text-left">
+          <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Vencimiento</label>
+          <input type="date" className="w-full bg-[#0f172a] border border-slate-700 p-3.5 rounded-xl text-white font-bold focus:border-rose-500 outline-none transition-all"
             value={form.fecha_pago} onChange={e => setForm({...form, fecha_pago: e.target.value})} />
         </div>
-        <button type="submit" className="bg-[#00e676] hover:bg-[#00c853] text-[#0f172a] font-black py-2.5 rounded-lg flex justify-center items-center gap-2 transition-all active:scale-95 shadow-lg shadow-green-500/20 uppercase text-xs tracking-widest">
-          <Plus size={18} strokeWidth={3} /> Registrar
+        <button type="submit" className="bg-rose-500 hover:bg-rose-400 text-white font-black py-4 rounded-xl flex justify-center items-center gap-2 transition-all active:scale-95 shadow-[0_10px_20px_rgba(244,63,94,0.3)] uppercase text-[11px] tracking-wider">
+          <Plus size={18} strokeWidth={3} /> Registrar Gasto
         </button>
       </motion.form>
 
-      {/* Tabla de Gastos con Imperatividad */}
-      <div className="bg-[#1e293b] rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
-        <table className="w-full text-left text-slate-300">
-          <thead className="bg-[#0f172a] text-[10px] uppercase tracking-[0.2em] text-slate-500">
+      {/* TABLA DE GASTOS */}
+      <div className="bg-[#1e293b] rounded-[3rem] border border-slate-700 overflow-hidden shadow-2xl">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-[#0f172a] text-[10px] uppercase tracking-[0.25em] text-slate-500 border-b border-slate-800">
             <tr>
-              <th className="p-4 font-black">Gasto / Servicio</th>
-              <th className="p-4 text-center font-black">Monto</th>
-              <th className="p-4 text-center font-black">Fecha</th>
-              <th className="p-4 text-center font-black">Acciones</th>
+              <th className="p-6 font-black">Servicio</th>
+              <th className="p-6 text-center font-black">Monto</th>
+              <th className="p-6 text-center font-black">Fecha de Pago</th>
+              <th className="p-6 text-right font-black px-12">Gestión</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700/50">
+          <tbody className="divide-y divide-slate-800 text-slate-300">
             <AnimatePresence>
-              {gastos.map((g) => (
-                <motion.tr 
-                  key={g.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="hover:bg-slate-800/40 transition-colors group"
-                >
-                  {editingId === g.id ? (
-                    <>
-                      <td className="p-2"><input className="bg-slate-900 border border-rose-500 p-2 rounded w-full text-sm text-white" value={editForm.nombre} onChange={e => setEditForm({...editForm, nombre: e.target.value})}/></td>
-                      <td className="p-2"><input type="number" className="bg-slate-900 border border-rose-500 p-2 rounded w-full text-sm text-center text-white font-bold" value={editForm.monto} onChange={e => setEditForm({...editForm, monto: e.target.value})}/></td>
-                      <td className="p-2"><input type="date" className="bg-slate-900 border border-rose-500 p-2 rounded w-full text-sm text-center text-white" value={editForm.fecha_pago} onChange={e => setEditForm({...editForm, fecha_pago: e.target.value})}/></td>
-                      <td className="p-2 text-center">
-                        <div className="flex justify-center gap-2">
-                          <button onClick={() => saveEdit(g.id)} className="bg-green-500/20 text-green-400 p-2 rounded-lg hover:bg-green-500/40 transition-all"><Check size={18}/></button>
-                          <button onClick={() => setEditingId(null)} className="bg-rose-500/20 text-rose-400 p-2 rounded-lg hover:bg-rose-500/40 transition-all"><X size={18}/></button>
-                        </div>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="p-4 flex items-center gap-3 uppercase text-[12px] font-bold tracking-tight">
-                        <div className="bg-rose-500/10 p-2 rounded-lg group-hover:bg-rose-500/20 transition-colors">
-                          <CreditCard size={14} className="text-rose-400"/>
-                        </div>
-                        {g.nombre}
-                      </td>
-                      <td className="p-4 font-black text-rose-500 text-center text-base">
-                        -${Number(g.monto).toLocaleString('es-CO')}
-                      </td>
-                      <td className="p-4 text-[11px] font-black text-slate-500 text-center">
-                        {g.fecha_pago?.split('T')[0]}
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => startEdit(g)} className="text-cyan-400 hover:bg-cyan-400/10 p-2 rounded-lg transition-all active:scale-90">
-                            <Edit2 size={18}/>
-                          </button>
-                          <button onClick={() => deleteGasto(g.id)} className="text-slate-500 hover:text-rose-500 p-2 rounded-lg transition-all active:scale-90">
-                            <Trash2 size={18}/>
-                          </button>
-                        </div>
-                      </td>
-                    </>
-                  )}
-                </motion.tr>
-              ))}
+              {gastosFiltrados.length > 0 ? (
+                gastosFiltrados.map((g) => (
+                  <motion.tr key={g.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="hover:bg-slate-800/40 group transition-all">
+                    {editingId === g.id ? (
+                      <>
+                        <td className="p-4"><input className="bg-slate-900 border border-rose-500 p-3 rounded-xl w-full text-sm text-white font-bold" value={editForm.nombre} onChange={e => setEditForm({...editForm, nombre: e.target.value})}/></td>
+                        <td className="p-4"><input type="number" className="bg-slate-900 border border-rose-500 p-3 rounded-xl w-full text-sm text-center text-white font-bold" value={editForm.monto} onChange={e => setEditForm({...editForm, monto: e.target.value})}/></td>
+                        <td className="p-4"><input type="date" className="bg-slate-900 border border-rose-500 p-3 rounded-xl w-full text-sm text-center text-white font-bold" value={editForm.fecha_pago} onChange={e => setEditForm({...editForm, fecha_pago: e.target.value})}/></td>
+                        <td className="p-4 text-right px-10">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => saveEdit(g.id)} className="bg-green-500 text-white p-2 rounded-lg hover:bg-green-400 transition-all"><Check size={18}/></button>
+                            <button onClick={() => setEditingId(null)} className="bg-slate-700 text-white p-2 rounded-lg hover:bg-rose-500 transition-all"><X size={18}/></button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="p-6">
+                          <div className="flex items-center gap-4">
+                            <div className="bg-rose-500/10 p-3 rounded-2xl group-hover:bg-rose-500 transition-all duration-300">
+                                <CreditCard size={18} className="text-rose-400 group-hover:text-white transition-colors"/>
+                            </div>
+                            <span className="uppercase text-xs font-black tracking-widest text-white group-hover:translate-x-1 transition-transform italic">{g.nombre}</span>
+                          </div>
+                        </td>
+                        <td className="p-6 font-black text-rose-500 text-center text-lg italic tracking-tighter">
+                          -${Number(g.monto).toLocaleString('es-CO')}
+                        </td>
+                        <td className="p-6 text-center">
+                          <div className="inline-flex items-center gap-2 bg-slate-900/50 px-4 py-1.5 rounded-full border border-slate-800 group-hover:border-rose-500/30 transition-all">
+                            <Calendar size={12} className="text-rose-500" />
+                            <span className="text-slate-400 font-black text-[11px] uppercase tracking-tighter group-hover:text-white transition-colors">
+                              {(() => {
+                                const fechaVal = g.fecha_pago || g.fecha;
+                                if (!fechaVal) return 'Pendiente';
+                                const d = new Date(fechaVal);
+                                d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
+                                return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+                              })()}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-6 text-right px-12">
+                          <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
+                            <button onClick={() => startEdit(g)} className="bg-cyan-500/10 text-cyan-400 p-2.5 rounded-xl hover:bg-cyan-500 hover:text-white transition-all shadow-lg hover:shadow-cyan-500/20"><Edit2 size={16}/></button>
+                            <button onClick={() => deleteGasto(g.id)} className="bg-slate-700/30 text-slate-500 p-2.5 rounded-xl hover:bg-rose-600 hover:text-white transition-all"><Trash2 size={16}/></button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </motion.tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4" className="p-24 text-center">
+                    <div className="flex flex-col items-center gap-3 opacity-20">
+                      <Calendar size={48} className="text-slate-500" />
+                      <p className="text-slate-500 font-black uppercase tracking-[0.5em] text-[10px]">Sin gastos en este periodo</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </AnimatePresence>
           </tbody>
         </table>
-        {gastos.length === 0 && (
-          <div className="p-12 text-center text-slate-500 italic text-sm">No hay gastos registrados en esta categoría.</div>
-        )}
       </div>
     </div>
   );

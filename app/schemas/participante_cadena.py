@@ -1,29 +1,41 @@
-# app/schemas/participante_cadena.py
+from __future__ import annotations
 from pydantic import BaseModel
+from typing import Optional, TYPE_CHECKING
 
-# Forward reference para la clase Usuario (se resolverá después)
-class UsuarioForPC(BaseModel):
-    id: int
-    nombre: str
-    email: str
-    
-    class Config:
-        from_attributes = True
+# Si necesitamos tipado para autocompletado pero sin importar en tiempo de ejecución
+if TYPE_CHECKING:
+    from .usuario import Usuario
 
 class ParticipanteCadenaBase(BaseModel):
     usuario_id: int
     cadena_id: int
     es_organizador: bool = False
+    meta_ahorro: float = 0.0
+    saldo_actual: float = 0.0
+    fecha_cobro: Optional[str] = None
+    cuota_pactada: float = 0.0
 
 class ParticipanteCadenaCreate(ParticipanteCadenaBase):
     pass
 
+class ParticipanteCadenaUpdate(BaseModel):
+    meta_ahorro: float
+    fecha_cobro: str
+    cuota_pactada: float
+
+class RegistroPago(BaseModel):
+    monto: float
+
 class ParticipanteCadena(ParticipanteCadenaBase):
-    # Opcionalmente, incluir los datos básicos del usuario
-    usuario: UsuarioForPC | None = None 
-    
+    # Usamos string para evitar el bucle infinito
+    usuario: Optional["Usuario"] = None 
+
     class Config:
         from_attributes = True
 
-# Necesario para resolver la referencia circular si la usamos en otro lado
-ParticipanteCadena.model_rebuild()
+# Forzamos la reconstrucción para que reconozca "Usuario" cuando esté listo
+try:
+    from .usuario import Usuario
+    ParticipanteCadena.model_rebuild()
+except ImportError:
+    pass

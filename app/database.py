@@ -1,10 +1,8 @@
-# app/database.py (Usa la importación absoluta corregida)
-
+# app/database.py
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Corregido: Importación absoluta para evitar errores de arranque
+# Corregido: Importación absoluta para evitar errores de arranque circular
 from app.core.config import settings 
 
 # -----------------------------------------------------------
@@ -30,6 +28,7 @@ Base = declarative_base()
 # -----------------------------------------------------------
 
 def get_db():
+    """Generador de sesiones para inyección de dependencias."""
     db = SessionLocal()
     try:
         yield db
