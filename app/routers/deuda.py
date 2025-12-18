@@ -9,7 +9,6 @@ from ..crud import crud_deuda
 from ..models import movimiento as movimiento_models
 from ..utils.auth import get_current_active_user
 
-# ESTO ES LO QUE BUSCA EL MAIN.PY
 router = APIRouter(
     prefix="/deudas",
     tags=["Deudas"],
@@ -21,20 +20,31 @@ def create_deuda_for_user(
     db: Session = Depends(get_db),
     current_user: usuario_schemas.Usuario = Depends(get_current_active_user)
 ):
+    # 1. Crear la deuda en la base de datos
     nueva_deuda = crud_deuda.create_deuda(db=db, deuda=deuda, usuario_id=current_user.id)
     
-   # Crear movimiento automático (Corregido sin tilde)
+    # 2. Crear movimiento automático
+    # CAMBIO: Se cambió 'descripcion' por 'nombre' 
+    # Asegúrate de que en tu clase Movimiento el campo se llame 'nombre'
     nuevo_movimiento = movimiento_models.Movimiento(
-        descripcion=f"REGISTRO DEUDA: {deuda.nombre}", 
+        nombre=f"REGISTRO DEUDA: {deuda.nombre}", 
         monto=deuda.monto_total,
         tipo="deuda", 
         fecha=datetime.now(),
         usuario_id=current_user.id
     )
     
-    db.add(nuevo_movimiento)
-    db.commit()
-    db.refresh(nueva_deuda)
+    try:
+        db.add(nuevo_movimiento)
+        db.commit()
+        db.refresh(nueva_deuda)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=f"Error al registrar el movimiento: {str(e)}"
+        )
+        
     return nueva_deuda
 
 @router.get("/", response_model=List[deuda_schemas.Deuda])
@@ -55,12 +65,11 @@ def update_deuda(
     if not db_deuda or db_deuda.propietario_id != current_user.id:
         raise HTTPException(status_code=404, detail="Deuda no encontrada")
     
-    # IMPORTANTE: Los nombres de argumentos deben coincidir con tu CRUD
     return crud_deuda.update_deuda(db=db, db_obj=db_deuda, obj_in=deuda_update)
 
 @router.delete("/{deuda_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_deuda(deuda_id: int, db: Session = Depends(get_db),
-                 current_user: usuario_schemas.Usuario = Depends(get_current_active_user)):
+                  current_user: usuario_schemas.Usuario = Depends(get_current_active_user)):
     db_deuda = crud_deuda.get_deuda(db, deuda_id=deuda_id)
     if db_deuda is None or db_deuda.propietario_id != current_user.id:
         raise HTTPException(status_code=404, detail="Deuda no encontrada")

@@ -93,7 +93,7 @@ const GastoFijoPage = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }}>
           <h2 className="text-4xl font-black text-white flex items-center gap-3 italic tracking-tighter uppercase leading-none">
-            <TrendingDown className="text-rose-500 animate-pulse" size={40} /> Protocolo_Egresos
+            <TrendingDown className="text-rose-500 animate-pulse" size={40} /> Gastos Fijos 
           </h2>
           <p className="text-rose-500/60 text-[10px] font-black uppercase tracking-[0.3em] mt-1 ml-1 italic">Control de fugas de capital</p>
         </motion.div>
